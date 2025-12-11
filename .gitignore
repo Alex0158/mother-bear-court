@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
-package-lock.json
+# package-lock.json - 允許提交 frontend 的 package-lock.json
+# 只忽略根目錄的 package-lock.json（如果有的話）
+/package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
