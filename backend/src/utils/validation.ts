@@ -2,6 +2,7 @@
  * 統一驗證工具類
  */
 
+import Joi from 'joi';
 import { Errors } from './errors';
 
 export class ValidationUtils {
@@ -121,3 +122,114 @@ export class ValidationUtils {
     }
   }
 }
+
+// Joi Validation Schemas
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Auth Schemas
+export const registerSchema = {
+  body: Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().min(8).required(),
+    name: Joi.string().min(2).max(50).optional(),
+  }),
+};
+
+export const loginSchema = {
+  body: Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().required(),
+  }),
+};
+
+export const sendVerificationCodeSchema = {
+  body: Joi.object({
+    email: Joi.string().email().required(),
+  }),
+};
+
+export const verifyEmailSchema = {
+  body: Joi.object({
+    email: Joi.string().email().required(),
+    code: Joi.string().length(6).required(),
+  }),
+};
+
+export const resetPasswordSchema = {
+  body: Joi.object({
+    email: Joi.string().email().required(),
+  }),
+};
+
+export const confirmResetPasswordSchema = {
+  body: Joi.object({
+    email: Joi.string().email().required(),
+    code: Joi.string().length(6).required(),
+    newPassword: Joi.string().min(8).required(),
+  }),
+};
+
+// Case Schemas
+export const quickCaseSchema = {
+  body: Joi.object({
+    plaintiffStatement: Joi.string().min(50).max(2000).required(),
+    defendantStatement: Joi.string().min(50).max(2000).required(),
+    evidenceUrls: Joi.array().items(Joi.string().uri()).max(3).optional(),
+  }),
+};
+
+export const createCaseSchema = {
+  body: Joi.object({
+    plaintiffStatement: Joi.string().min(50).max(2000).required(),
+    defendantStatement: Joi.string().min(50).max(2000).required(),
+    evidenceUrls: Joi.array().items(Joi.string().uri()).max(3).optional(),
+    pairingId: Joi.string().pattern(uuidPattern).optional(),
+  }),
+};
+
+export const uuidParamSchema = {
+  params: Joi.object({
+    id: Joi.string().pattern(uuidPattern).required(),
+  }),
+};
+
+// Execution Schemas
+export const confirmExecutionSchema = {
+  body: Joi.object({
+    planId: Joi.string().pattern(uuidPattern).required(),
+  }),
+};
+
+export const checkinSchema = {
+  body: Joi.object({
+    planId: Joi.string().pattern(uuidPattern).required(),
+    status: Joi.string().valid('completed', 'in_progress', 'failed').required(),
+    notes: Joi.string().max(500).optional(),
+  }),
+};
+
+// Pairing Schemas
+export const createPairingSchema = {
+  body: Joi.object({
+    partnerEmail: Joi.string().email().optional(),
+  }),
+};
+
+export const joinPairingSchema = {
+  body: Joi.object({
+    pairingCode: Joi.string().length(6).required(),
+  }),
+};
+
+// Reconciliation Schemas
+export const generateReconciliationPlansSchema = {
+  body: Joi.object({
+    judgmentId: Joi.string().pattern(uuidPattern).required(),
+  }),
+};
+
+export const selectPlanSchema = {
+  body: Joi.object({
+    planId: Joi.string().pattern(uuidPattern).required(),
+  }),
+};

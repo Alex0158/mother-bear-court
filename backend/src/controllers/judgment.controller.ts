@@ -28,7 +28,7 @@ export class JudgmentController {
       const judgmentId = req.params.id;
       
       // 通過判決ID獲取判決，然後獲取對應的案件ID
-      const { prisma } = await import('../config/database');
+      const prisma = (await import('../config/database')).default;
       const judgment = await prisma.judgment.findUnique({
         where: { id: judgmentId },
         include: { case: true },

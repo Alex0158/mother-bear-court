@@ -11,9 +11,9 @@ export interface UserPayload {
  * 生成JWT Token
  */
 export function generateToken(payload: UserPayload): string {
-  return jwt.sign(payload, env.JWT_SECRET, {
+  return jwt.sign(payload, env.JWT_SECRET as string, {
     expiresIn: env.JWT_EXPIRES_IN,
-  });
+  } as jwt.SignOptions);
 }
 
 /**
@@ -21,7 +21,7 @@ export function generateToken(payload: UserPayload): string {
  */
 export function verifyToken(token: string): UserPayload {
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET) as UserPayload;
+    const decoded = jwt.verify(token, env.JWT_SECRET as string) as UserPayload;
     return decoded;
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
