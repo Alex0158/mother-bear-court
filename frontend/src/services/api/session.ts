@@ -7,11 +7,11 @@ import type { ApiResponse } from '@/types/common';
 import type { Session } from '@/types/session';
 
 /**
- * 創建Session
+ * 創建Session（快速體驗模式）
  */
 export const createSession = async (): Promise<Session> => {
-  const response = await request.get<ApiResponse<{ session_id: string; expires_at: string }>>(
-    '/sessions/create'
+  const response = await request.post<ApiResponse<{ session_id: string; expires_at: string }>>(
+    '/sessions/quick'
   );
   const data = (response.data as ApiResponse<{ session_id: string; expires_at: string }>).data;
   return {

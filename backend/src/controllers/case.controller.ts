@@ -122,6 +122,109 @@ export class CaseController {
       next(error);
     }
   }
+
+  /**
+   * 通過案件ID獲取判決（快速體驗模式和完整模式）
+   */
+  async getJudgmentByCaseId(req: Request, res: Response, next: NextFunction) {
+    try {
+      const caseId = req.params.id;
+      const userId = (req as any).user?.id;
+      const sessionId = (req.query.session_id as string) || 
+                        (req.headers['x-session-id'] as string);
+
+      const judgment = await judgmentService.getJudgmentByCaseId(
+        caseId,
+        userId,
+        sessionId
+      );
+
+      if (!judgment) {
+        res.status(202).json({
+          success: false,
+          error: {
+            code: 'JUDGMENT_PENDING',
+            message: '判決生成中，請稍後再試',
+          },
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: { judgment },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * 獲取案件列表（完整模式）
+   */
+  async getCaseList(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user!.id;
+      const params = {
+        status: req.query.status as string,
+        type: req.query.type as string,
+        page: req.query.page ? parseInt(req.query.page as string, 10) : undefined,
+        page_size: req.query.page_size ? parseInt(req.query.page_size as string, 10) : undefined,
+        sort_by: req.query.sort_by as string,
+        sort_order: req.query.sort_order as 'asc' | 'desc',
+        search: req.query.search as string,
+      };
+
+      const result = await caseService.getCaseList(userId, params);
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * 提交案件（將狀態從draft改為submitted）
+   */
+  async submitCase(req: Request, res: Response, next: NextFunction) {
+    try {
+      const caseId = req.params.id;
+      const userId = (req as any).user!.id;
+
+      const case_ = await caseService.submitCase(caseId, userId);
+
+      res.json({
+        success: true,
+        data: { case: case_ },
+        message: '案件已提交，AI正在分析中...',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * 更新案件（僅draft狀態可更新）
+   */
+  async updateCase(req: Request, res: Response, next: NextFunction) {
+    try {
+      const caseId = req.params.id;
+      const userId = (req as any).user!.id;
+
+      const case_ = await caseService.updateCase(caseId, userId, req.body);
+
+      res.json({
+        success: true,
+        data: { case: case_ },
+        message: '案件已更新',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const caseController = new CaseController();

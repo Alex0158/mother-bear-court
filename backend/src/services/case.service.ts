@@ -215,6 +215,193 @@ export class CaseService {
   }
 
   /**
+   * 獲取案件列表（完整模式）
+   */
+  async getCaseList(
+    userId: string,
+    params: {
+      status?: string;
+      type?: string;
+      page?: number;
+      page_size?: number;
+      sort_by?: string;
+      sort_order?: 'asc' | 'desc';
+      search?: string;
+    } = {}
+  ) {
+    const {
+      status,
+      type,
+      page = 1,
+      page_size = 10,
+      sort_by = 'created_at',
+      sort_order = 'desc',
+      search,
+    } = params;
+
+    const where: any = {
+      OR: [
+        { plaintiff_id: userId },
+        { defendant_id: userId },
+      ],
+      mode: 'remote', // 只返回完整模式的案件
+    };
+
+    if (status && status !== 'all') {
+      where.status = status;
+    }
+
+    if (type && type !== 'all') {
+      where.type = type;
+    }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { plaintiff_statement: { contains: search, mode: 'insensitive' } },
+        { defendant_statement: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [cases, total] = await Promise.all([
+      prisma.case.findMany({
+        where,
+        include: {
+          judgment: {
+            select: {
+              id: true,
+              summary: true,
+              responsibility_ratio: true,
+            },
+          },
+        },
+        orderBy: {
+          [sort_by]: sort_order,
+        },
+        skip: (page - 1) * page_size,
+        take: page_size,
+      }),
+      prisma.case.count({ where }),
+    ]);
+
+    return {
+      cases,
+      pagination: {
+        page,
+        page_size,
+        total,
+        total_pages: Math.ceil(total / page_size),
+      },
+    };
+  }
+
+  /**
+   * 提交案件（將狀態從draft改為submitted）
+   */
+  async submitCase(caseId: string, userId: string) {
+    const case_ = await prisma.case.findUnique({
+      where: { id: caseId },
+    });
+
+    if (!case_) {
+      throw Errors.NOT_FOUND('案件不存在');
+    }
+
+    // 驗證用戶權限
+    if (case_.plaintiff_id !== userId && case_.defendant_id !== userId) {
+      throw Errors.FORBIDDEN('無權限提交此案件');
+    }
+
+    // 驗證案件狀態
+    if (case_.status !== 'draft') {
+      throw Errors.CASE_NOT_EDITABLE('案件狀態不允許提交');
+    }
+
+    // 更新狀態
+    const updatedCase = await prisma.case.update({
+      where: { id: caseId },
+      data: {
+        status: 'submitted',
+        submitted_at: new Date(),
+      },
+    });
+
+    // 異步觸發AI判決生成
+    const { judgmentService } = await import('./judgment.service');
+    judgmentService.generateJudgment(caseId).catch(err => {
+      logger.error('Failed to generate judgment after submission', { caseId, error: err });
+    });
+
+    return updatedCase;
+  }
+
+  /**
+   * 更新案件（僅draft狀態可更新）
+   */
+  async updateCase(caseId: string, userId: string, data: Partial<CreateCaseDto>) {
+    const case_ = await prisma.case.findUnique({
+      where: { id: caseId },
+    });
+
+    if (!case_) {
+      throw Errors.NOT_FOUND('案件不存在');
+    }
+
+    // 驗證用戶權限
+    if (case_.plaintiff_id !== userId && case_.defendant_id !== userId) {
+      throw Errors.FORBIDDEN('無權限更新此案件');
+    }
+
+    // 驗證案件狀態（僅draft狀態可更新）
+    if (case_.status !== 'draft') {
+      throw Errors.CASE_NOT_EDITABLE('案件狀態不允許更新');
+    }
+
+    // 驗證更新數據
+    const updateData: any = {};
+
+    if (data.title !== undefined) {
+      updateData.title = data.title;
+    }
+
+    if (data.plaintiff_statement !== undefined) {
+      updateData.plaintiff_statement = ValidationUtils.validateStatement(
+        data.plaintiff_statement,
+        '原告陳述'
+      );
+      // 更新案件類型（如果陳述改變）
+      const caseType = await aiService.detectCaseType(
+        data.plaintiff_statement,
+        data.defendant_statement || case_.defendant_statement || ''
+      );
+      updateData.type = caseType;
+    }
+
+    if (data.defendant_statement !== undefined) {
+      updateData.defendant_statement = data.defendant_statement
+        ? ValidationUtils.validateStatement(data.defendant_statement, '被告陳述')
+        : null;
+      // 更新案件類型（如果陳述改變）
+      if (data.plaintiff_statement === undefined) {
+        const caseType = await aiService.detectCaseType(
+          case_.plaintiff_statement,
+          data.defendant_statement || ''
+        );
+        updateData.type = caseType;
+      }
+    }
+
+    updateData.updated_at = new Date();
+
+    const updatedCase = await prisma.case.update({
+      where: { id: caseId },
+      data: updateData,
+    });
+
+    return updatedCase;
+  }
+
+  /**
    * 獲取案件詳情（優化查詢，避免N+1問題）
    */
   async getCaseById(caseId: string, userId?: string, sessionId?: string) {
