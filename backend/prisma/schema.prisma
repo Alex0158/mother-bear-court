@@ -1,0 +1,247 @@
+// Prisma Schema for Mother Bear Court
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 用戶表
+model User {
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  password_hash       String
+  nickname            String?
+  avatar_url          String?
+  gender              String?   @db.VarChar(10)
+  age                 Int?
+  relationship_status String    @default("single")
+  language            String    @default("zh") @db.VarChar(10)
+  timezone            String?
+  notification_enabled Boolean  @default(true)
+  privacy_level       String    @default("private") @db.VarChar(20)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  last_login_at       DateTime?
+  is_active           Boolean   @default(true)
+  email_verified      Boolean   @default(false)
+
+  // 關聯
+  pairings_as_user1  Pairing[] @relation("User1Pairings")
+  pairings_as_user2  Pairing[] @relation("User2Pairings")
+  cases_as_plaintiff  Case[]    @relation("PlaintiffCases")
+  cases_as_defendant  Case[]    @relation("DefendantCases")
+  evidences           Evidence[]
+  execution_records   ExecutionRecord[]
+
+  @@index([email])
+  @@index([created_at])
+  @@index([is_active])
+  @@index([email_verified])
+  @@map("users")
+}
+
+// 配對表
+model Pairing {
+  id          String    @id @default(uuid())
+  user1_id    String?
+  user2_id    String?
+  invite_code String?   @unique @db.VarChar(6)
+  status      String    @default("pending") @db.VarChar(20)
+  pairing_type String   @default("normal") @db.VarChar(20)
+  session_id  String?   @db.VarChar(100)
+  created_at  DateTime  @default(now())
+  confirmed_at DateTime?
+  cancelled_at DateTime?
+  expires_at  DateTime?
+
+  // 關聯
+  user1      User?     @relation("User1Pairings", fields: [user1_id], references: [id])
+  user2      User?     @relation("User2Pairings", fields: [user2_id], references: [id])
+  cases      Case[]
+  quick_sessions QuickSession[]
+
+  @@index([user1_id])
+  @@index([user2_id])
+  @@index([status])
+  @@index([expires_at])
+  @@index([session_id])
+  @@index([pairing_type])
+  @@map("pairings")
+}
+
+// 案件表
+model Case {
+  id                  String    @id @default(uuid())
+  pairing_id          String
+  title               String    @db.VarChar(200)
+  type                String    @db.VarChar(50)
+  sub_type            String?   @db.VarChar(50)
+  plaintiff_id        String?
+  defendant_id        String?
+  plaintiff_statement String    @db.Text
+  defendant_statement String?   @db.Text
+  status              String    @default("draft") @db.VarChar(20)
+  mode                String    @default("remote") @db.VarChar(20)
+  session_id          String?   @db.VarChar(100)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  submitted_at        DateTime?
+  completed_at        DateTime?
+
+  // 關聯
+  pairing             Pairing   @relation(fields: [pairing_id], references: [id])
+  plaintiff           User?     @relation("PlaintiffCases", fields: [plaintiff_id], references: [id])
+  defendant           User?     @relation("DefendantCases", fields: [defendant_id], references: [id])
+  evidences           Evidence[]
+  judgment            Judgment?
+  quick_sessions      QuickSession[]
+
+  @@index([pairing_id])
+  @@index([plaintiff_id])
+  @@index([defendant_id])
+  @@index([status])
+  @@index([type])
+  @@index([created_at])
+  @@index([submitted_at])
+  @@index([session_id])
+  @@index([mode])
+  @@map("cases")
+}
+
+// 證據表
+model Evidence {
+  id          String    @id @default(uuid())
+  case_id     String
+  user_id     String?
+  file_url    String    @db.VarChar(500)
+  file_type   String    @db.VarChar(20)
+  file_size   Int
+  description String?   @db.Text
+  created_at  DateTime  @default(now())
+
+  // 關聯
+  case        Case      @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  user        User?     @relation(fields: [user_id], references: [id])
+
+  @@index([case_id])
+  @@index([user_id])
+  @@index([file_type])
+  @@map("evidences")
+}
+
+// 判決表
+model Judgment {
+  id                  String    @id @default(uuid())
+  case_id             String    @unique
+  judgment_content     String    @db.Text
+  summary             String?   @db.Text
+  responsibility_ratio Json     // {plaintiff: 60, defendant: 40}
+  ai_model            String    @default("gpt-3.5-turbo") @db.VarChar(50)
+  prompt_version       String    @default("v1.0") @db.VarChar(20)
+  user1_acceptance    Boolean?
+  user2_acceptance     Boolean?
+  user1_rating         Int?
+  user2_rating         Int?
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+
+  // 關聯
+  case                 Case      @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  reconciliation_plans ReconciliationPlan[]
+
+  @@index([case_id])
+  @@index([created_at])
+  @@index([user1_acceptance])
+  @@index([user2_acceptance])
+  @@map("judgments")
+}
+
+// 和好方案表
+model ReconciliationPlan {
+  id                  String    @id @default(uuid())
+  judgment_id         String
+  plan_content         String    @db.Text
+  plan_type           String    @db.VarChar(50)
+  difficulty_level    String    @db.VarChar(20)
+  estimated_duration  Int?
+  time_cost           Int
+  money_cost          Int
+  emotion_cost        Int
+  skill_requirement   Int
+  user1_selected      Boolean   @default(false)
+  user2_selected      Boolean   @default(false)
+  created_at          DateTime  @default(now())
+
+  // 關聯
+  judgment            Judgment  @relation(fields: [judgment_id], references: [id], onDelete: Cascade)
+  execution_records   ExecutionRecord[]
+
+  @@index([judgment_id])
+  @@index([difficulty_level])
+  @@index([plan_type])
+  @@map("reconciliation_plans")
+}
+
+// 執行記錄表
+model ExecutionRecord {
+  id                  String    @id @default(uuid())
+  reconciliation_plan_id String
+  user_id             String
+  action              String    @db.VarChar(50)
+  status              String    @default("pending") @db.VarChar(20)
+  notes               String?   @db.Text
+  photos_urls         String[]
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  // 關聯
+  reconciliation_plan ReconciliationPlan @relation(fields: [reconciliation_plan_id], references: [id], onDelete: Cascade)
+  user                User      @relation(fields: [user_id], references: [id])
+
+  @@index([reconciliation_plan_id])
+  @@index([user_id])
+  @@index([status])
+  @@index([action])
+  @@map("execution_records")
+}
+
+// 快速體驗模式Session表
+model QuickSession {
+  id                  String    @id @db.VarChar(100)
+  pairing_id          String?
+  case_id             String?
+  session_data        Json?
+  created_at          DateTime  @default(now())
+  expires_at          DateTime
+  last_accessed_at    DateTime  @default(now())
+
+  // 關聯
+  pairing             Pairing?  @relation(fields: [pairing_id], references: [id])
+  case                Case?     @relation(fields: [case_id], references: [id])
+
+  @@index([expires_at])
+  @@index([pairing_id])
+  @@index([case_id])
+  @@map("quick_sessions")
+}
+
+// 郵件驗證表
+model EmailVerification {
+  id          String    @id @default(uuid())
+  email       String    @db.VarChar(255)
+  code        String    @db.VarChar(6)
+  type        String    @db.VarChar(20)
+  expires_at  DateTime
+  used        Boolean   @default(false)
+  created_at  DateTime  @default(now())
+
+  @@index([email])
+  @@index([code])
+  @@index([expires_at])
+  @@index([type])
+  @@map("email_verifications")
+}
+
