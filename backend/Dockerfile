@@ -8,8 +8,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# 安裝依賴
-RUN npm ci --only=production
+# 安裝所有依賴（包括 devDependencies，用於構建）
+RUN npm ci
 
 # 生成Prisma Client
 RUN npx prisma generate
@@ -19,6 +19,10 @@ COPY . .
 
 # 構建TypeScript
 RUN npm run build
+
+# 清理 devDependencies（可選，減小鏡像大小）
+# 注意：如果後續需要運行 prisma migrate 等命令，可以跳過這一步
+RUN npm prune --production
 
 # 暴露端口
 EXPOSE 3000
