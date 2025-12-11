@@ -23,6 +23,10 @@ import executionRoutes from './routes/execution.routes';
 
 const app: Application = express();
 
+// 信任代理（Railway、Vercel等反向代理环境必需）
+// 设置为 true 表示信任第一个代理，或设置为 'loopback' 表示只信任环回地址
+app.set('trust proxy', true);
+
 // 安全中間件
 app.use(helmet({
   contentSecurityPolicy: {
