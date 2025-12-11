@@ -1,6 +1,11 @@
 # 使用Node.js官方鏡像
 FROM node:18-alpine
 
+# 安裝 OpenSSL 和其他必要的系統依賴（Prisma 需要）
+# openssl: OpenSSL 庫
+# libc6-compat: 兼容性庫
+RUN apk add --no-cache openssl libc6-compat
+
 # 設置工作目錄
 WORKDIR /app
 
