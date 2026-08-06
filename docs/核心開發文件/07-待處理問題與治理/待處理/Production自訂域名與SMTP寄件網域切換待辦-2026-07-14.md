@@ -4,14 +4,25 @@
 **文檔類型**：問題治理
 **覆蓋範圍**：Namecheap DNS、Vercel main/Admin custom domain、Railway backend custom domain、Web/Admin/Mobile Production URL／origin contract、SMTP sender-domain 與 release evidence
 **取證代碼入口**：`.github/workflows/production-deploy-and-verify.yml`、`scripts/ops-release-status.sh`、`scripts/ops-release-gate.sh`、`frontend/vercel.json`、`frontend-admin/vercel.json`、`frontend/src/config/env.ts`、`frontend-admin/src/config/env.ts`、`mobile/src/config/runtime.ts`、`mobile/eas.json`、`backend/src/config`、`backend/src/app.ts`、`backend/src/services/file.service.ts`
-**最後核驗 Commit**：`534217d`
-**最後核驗日期**：`2026-07-15`
+**最後核驗 Commit**：`1a3e933`
+**最後核驗日期**：`2026-08-06`
 <!-- CORE_DOC_AUDIT_METADATA:END -->
 
-**狀態**：處理中（custom domains、canonical URL／CORS／bundle、Resend HTTPS API 與 exact-main Production release 已閉環；尚待受控 mailbox header evidence及重新產出的 Mobile Production artifact）
+**狀態**：處理中（2026-08-06 live revalidation 發現 Web/Admin/API custom-domain contract 已漂移；GitHub 公開身份已更正，Production domains 尚待重新決策、修復與完整 release evidence）
 **Owner**：Platform / Ops
-**優先級**：P1 Production evidence closure（不阻擋已發布 Web/Admin/backend）
+**優先級**：P0 Production runtime 與 release contract 回歸
 **母任務**：[Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md](./Emorapy命名收斂與外部識別符遷移待辦-2026-06-20.md)
+
+## 2026-08-06 live revalidation 與回歸處理
+
+1. GitHub repository `Alex0158/emorapy` 的 About description 與 website 仍保留 legacy 對外識別。本輪已更正為「Emorapy — guided reflection and repair after relationship conflict.」、`https://emorapy.co.uk`，並補上 current product/stack topics。
+2. `https://emorapy.co.uk/version.json`、`https://emorapy.vercel.app/version.json` 與 `https://emorapy-admin.vercel.app/version.json` 當次均回報 exact-main `1a3e9336a8c1f1c07d687d1ee37f2e97dc29d4f8`。
+3. `https://emorapy.com/version.json` 當次轉往 account sign-in；`https://admin.emorapy.com/` 當次回 404，不能繼續當作已驗證的 current app/version endpoints。
+4. `api.emorapy.com` 仍解析到 Railway，但當次 HTTPS certificate SAN 只包含 `*.up.railway.app` / `up.railway.app`，不包含 `api.emorapy.com`。
+5. `emorapy.co.uk` 與 Vercel main/Admin live bundles 當次仍包含 `https://api.emorapy.com/api/v1`；這是 browser-visible Production runtime contract 漂移，不只是文檔問題。
+6. Railway legacy hostname `https://mother-bear-court-production.up.railway.app/version` 當次回報 exact-main 且 HTTPS 可用。它仍是 compatibility/rollback evidence，本輪不刪除、不重建、不未經 release gate 直接切換。
+7. 修復前必須重新決定 canonical public Web host 是 `emorapy.com` 或 `emorapy.co.uk`，核對 Admin Vercel binding/protection，並在 Railway/Namecheap 修復 `api.emorapy.com` ownership/TLS 或選擇新 canonical API hostname。不得以關閉 TLS verification 作為修復。
+8. 決策後才同步 `.github/workflows/production-deploy-and-verify.yml`、`AGENTS.md`、ops runbook、`.env.example`、`mobile/eas.json` 與 release scripts；未完成 HTTPS/version/health/readiness/CORS/bundle 與 `npm run ops:release:gate:evidence` 前，不得將 custom domains 重新標為 ACTIVE/current。
 
 ## 決策與目標拓撲
 

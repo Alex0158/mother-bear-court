@@ -196,7 +196,7 @@ function resolveMarkdownTarget(filePath, target) {
 
 function isAllowedMarkdownPath(relativePath) {
   const normalized = relativePath.split(path.sep).join(path.posix.sep);
-  if (normalized === 'AGENTS.md') {
+  if (normalized === 'AGENTS.md' || normalized === 'README.md') {
     return true;
   }
   return ALLOWED_MARKDOWN_PREFIXES.some((prefix) => normalized.startsWith(prefix));
